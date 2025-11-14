@@ -10,7 +10,7 @@ def lambda_handler(event, context):
     return {
         "statusCode": 200,
         "body": json.dumps({
-            "message": "Hello from GitHub->AWS Lambda!",
+            "message": "Hello from GitHub->AWS Lambda!- new changes",
             "received_event": event,
             "invoked_at": datetime.datetime.utcnow().isoformat() + "Z"
         })
