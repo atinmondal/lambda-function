@@ -27,21 +27,21 @@ jobs:
           role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Setup Python (optional, only used if you have requirements)
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
+      # - name: Setup Python (optional, only used if you have requirements)
+      #   uses: actions/setup-python@v4
+      #   with:
+      #     python-version: '3.x'
 
-      - name: Install dependencies if present
-        if: ${{ hashFiles('**/requirements.txt') != '' }}
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -t package
-          cd package
-          zip -r9 ../${ZIP_FILE} .
-          cd ..
+      # - name: Install dependencies if present
+      #   if: ${{ hashFiles('**/requirements.txt') != '' }}
+      #   run: |
+      #     python -m pip install --upgrade pip
+      #     pip install -r requirements.txt -t package
+      #     cd package
+      #     zip -r9 ../${ZIP_FILE} .
+      #     cd ..
 
-      - name: Package code (no deps)
+      - name: Package code
         if: ${{ hashFiles('**/requirements.txt') == '' }}
         run: |
           rm -f ${ZIP_FILE}
