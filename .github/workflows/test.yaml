@@ -51,8 +51,7 @@ jobs:
         run: |
           aws lambda update-function-code \
             --function-name "${LAMBDA_NAME}" \
-            --zip-file fileb://${ZIP_FILE} \
-            --publish
+            --zip-file fileb://${ZIP_FILE}
 
       - name: Quick smoke invoke (optional)
         run: |
