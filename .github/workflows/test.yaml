@@ -1,4 +1,4 @@
-name: Test AWS OIDC Connection
+name: Deploy Lambda (simple)
 
 on:
   push:
@@ -9,18 +9,53 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  AWS_REGION: us-east-1
+  LAMBDA_NAME: test    
+  ZIP_FILE: function.zip
+
 jobs:
-  aws-auth-test:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials from IAM Role via OIDC
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Verify AWS identity
-        run: aws sts get-caller-identity
+      - name: Setup Python (optional, only used if you have requirements)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies if present
+        if: ${{ hashFiles('**/requirements.txt') != '' }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -t package
+          cd package
+          zip -r9 ../${ZIP_FILE} .
+          cd ..
+
+      - name: Package code (no deps)
+        if: ${{ hashFiles('**/requirements.txt') == '' }}
+        run: |
+          rm -f ${ZIP_FILE}
+          zip -r ${ZIP_FILE} lambda_function.py
+
+      - name: Update Lambda function code
+        run: |
+          aws lambda update-function-code \
+            --function-name "${LAMBDA_NAME}" \
+            --zip-file fileb://${ZIP_FILE} \
+            --publish
+
+      - name: Quick smoke invoke (optional)
+        run: |
+          echo '{}' > /tmp/event.json
+          aws lambda invoke --function-name "${LAMBDA_NAME}" --payload file:///tmp/event.json /tmp/output.json
+          cat /tmp/output.json
