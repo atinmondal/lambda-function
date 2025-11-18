@@ -1,9 +1,11 @@
-name: Deploy Lambda (simple)
+name: Deploy Lambda
 
 on:
   push:
     branches:
       - dev
+      - uat
+      - prod
 
 permissions:
   id-token: write
@@ -11,52 +13,48 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  LAMBDA_NAME: test    
+  # Since the name is the same everywhere, we hardcode it here.
+  LAMBDA_NAME: test  
   ZIP_FILE: function.zip
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    
+    # 1. DYNAMIC ENVIRONMENT
+    # This tells GitHub: "If branch is dev, load 'dev' environment settings."
     environment: 
-      name: dev-approval
+      name: ${{ github.ref_name }} 
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # 2. DYNAMIC CREDENTIALS
+      # GitHub looks into the active Environment (e.g., 'prod') 
+      # and pulls the specific 'AWS_IAM_ROLE' secret defined there.
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # - name: Setup Python (optional, only used if you have requirements)
-      #   uses: actions/setup-python@v4
-      #   with:
-      #     python-version: '3.x'
-
-      # - name: Install dependencies if present
-      #   if: ${{ hashFiles('**/requirements.txt') != '' }}
-      #   run: |
-      #     python -m pip install --upgrade pip
-      #     pip install -r requirements.txt -t package
-      #     cd package
-      #     zip -r9 ../${ZIP_FILE} .
-      #     cd ..
-
       - name: Package code
-        if: ${{ hashFiles('**/requirements.txt') == '' }}
         run: |
           rm -f ${ZIP_FILE}
           zip -r ${ZIP_FILE} lambda_function.py
 
       - name: Update Lambda function code
         run: |
+          echo "Deploying to Account using Role: ${{ secrets.AWS_IAM_ROLE }}"
+          # Masking ensures the actual ARN isn't shown in logs for security
+          
           aws lambda update-function-code \
             --function-name "${LAMBDA_NAME}" \
             --zip-file fileb://${ZIP_FILE} \
             --publish
 
-      - name: Quick smoke invoke (optional)
+      - name: Quick smoke invoke
         run: |
           echo '{}' > /tmp/event.json
           aws lambda invoke --function-name "${LAMBDA_NAME}" --payload file:///tmp/event.json /tmp/output.json
