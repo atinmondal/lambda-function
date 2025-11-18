@@ -17,6 +17,8 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: 
+      name: dev-approval
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
