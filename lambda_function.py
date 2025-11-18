@@ -1,5 +1,5 @@
 # lambda_function.py
-
+# deployed via GitHub Actions - v1.0.1
 import json
 import datetime
 
