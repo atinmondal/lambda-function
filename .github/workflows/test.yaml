@@ -13,71 +13,37 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  LAMBDA_NAME: test
+  LAMBDA_NAME: test  
   ZIP_FILE: function.zip
-  PYLINT_THRESHOLD: 8.0   # change this value to set required minimum score
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: ${{ github.ref_name }}
+    environment: 
+      name: ${{ github.ref_name }} 
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # -- set up python early for linting
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      # --- NEW SECTION STARTS HERE ---
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12' # Ensure this matches your Lambda runtime version
 
-      - name: Install lint dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pylint
+          # If you have a requirements.txt, uncomment the next line so pylint can resolve imports
+          # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Run Pylint and enforce threshold
-        id: pylint
+      - name: Lint with Pylint
         run: |
-          set -euxo pipefail
-
-          # run pylint and collect output (prevent pylint exit code from breaking shell)
-          pylint lambda_function.py > pylint.out || true
-          cat pylint.out
-
-          # extract score like: "Your code has been rated at 8.50/10"
-          SCORE=$(grep -Eo 'rated at [0-9]+(\.[0-9]+)?/10' pylint.out | grep -Eo '[0-9]+(\.[0-9]+)?' || true)
-          if [ -z "$SCORE" ]; then
-            # If pylint output changed or parsing fails, default to 0.0 to be safe
-            SCORE="0.0"
-          fi
-          echo "Pylint score: $SCORE/10"
-          echo "Pylint threshold: ${PYLINT_THRESHOLD}"
-
-          # Export so python heredoc can read it from env
-          echo "SCORE=$SCORE" >> $GITHUB_ENV
-          echo "THRESHOLD=${PYLINT_THRESHOLD}" >> $GITHUB_ENV
-
-          # Use Python to compare floats reliably
-          python3 - <<PY
-import os, sys
-s = float(os.environ.get("SCORE", "0.0"))
-t = float(os.environ.get("THRESHOLD", "0.0"))
-if s < t:
-    print(f"Pylint failed: score {s} < threshold {t}")
-    sys.exit(1)
-print(f"Pylint passed: score {s} >= threshold {t}")
-PY
-
-      # -- package & deploy only if pylint passed --
-      - name: Package code
-        run: |
-          set -euxo pipefail
-          rm -f ${ZIP_FILE}
-          # if you need to include other files/folders, list them here
-          zip -r ${ZIP_FILE} lambda_function.py
+          # Fails if score is under 8.0/10. Adjust threshold or remove flag as needed.
+          pylint lambda_function.py --fail-under=8.0
+      # --- NEW SECTION ENDS HERE ---
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -85,10 +51,17 @@ PY
           role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Package code
+        run: |
+          rm -f ${ZIP_FILE}
+          # If you have dependencies, you usually install them into a package folder and zip that too.
+          # For a simple script, this is fine:
+          zip -r ${ZIP_FILE} lambda_function.py
+
       - name: Update Lambda function code
         run: |
-          set -euxo pipefail
           echo "Deploying to Account using Role: ${{ secrets.AWS_IAM_ROLE }}"
+          
           aws lambda update-function-code \
             --function-name "${LAMBDA_NAME}" \
             --zip-file fileb://${ZIP_FILE} \
@@ -96,7 +69,6 @@ PY
 
       - name: Quick smoke invoke
         run: |
-          set -euxo pipefail
           echo '{}' > /tmp/event.json
           aws lambda invoke --function-name "${LAMBDA_NAME}" --payload file:///tmp/event.json /tmp/output.json
           cat /tmp/output.json
