@@ -3,7 +3,7 @@
 import json
 import datetime
 
-def lambda_handler(event, context):
+def lambda_handler(event):
     """
     Simple example Lambda that echoes the event and returns timestamp.
     """
