@@ -1,5 +1,8 @@
 # lambda_function.py
-
+"""
+This module provides utility functions for performing mathematical operations.
+It includes functions for addition, subtraction, and multiplication.
+"""
 import json
 import datetime
 
