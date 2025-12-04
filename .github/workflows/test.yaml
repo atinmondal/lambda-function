@@ -54,7 +54,7 @@ jobs:
       - name: SCA Scan (Safety)
         run: |
           # Checks installed packages for known vulnerabilities
-          safety check
+          safety scan
           
       # --- NEW SECURITY SECTION ENDS HERE ---
 
